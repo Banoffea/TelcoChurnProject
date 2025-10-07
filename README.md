@@ -1,10 +1,11 @@
-# Telco Customer Churn Prediction (XGBoost)
+# Telco Customer Churn Prediction
 
-Interactive churn prediction for a telco dataset with an end-to-end ML pipeline: preprocessing → model selection → hyperparameter tuning → threshold calibration → deployment (Streamlit) + business dashboard (Power BI).
+Built an end-to-end churn prediction system using the **Data Science process**:  
+data collection → cleaning → EDA → feature engineering → model tuning → threshold calibration → deployment.
 
-**Final model**: XGBoost  
-**Threshold**: 0.4 (business-driven, maximize recall for retention)  
-**Key metrics (test)**: Precision ≈ 0.50 • Recall ≈ 0.86 • F1 ≈ 0.63 • ROC-AUC ≈ 0.84
+**Model:** XGBoost (threshold = 0.4, optimized for recall)  
+**Metrics:** Precision 0.50 • Recall 0.86 • F1 0.63 • ROC-AUC 0.84  
+**Deployment:** Streamlit app + Power BI business dashboard
 
 ## 🚀 Quickstart (Local)
 
