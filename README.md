@@ -54,31 +54,30 @@ If you retrain, re-export the three files again:
 
 ## 📊 Model & Business Summary
 
-- Goal: Identify customers likely to churn and prioritize retention offers.
+- **Goal:** Predict customers most likely to churn to support proactive retention campaigns and reduce revenue loss.
 
-- Model: XGBoost tuned via RandomizedSearchCV + Stratified K-Fold CV.
+- **Model:** XGBoost optimized via RandomizedSearchCV and Stratified K-Fold cross-validation.
 
-- Threshold 0.4: chosen to maximize recall (catch more true churners), which aligns with retention use-cases.
+- **Decision Threshold (0.4):** Calibrated to **maximize recall**, enabling the business to capture more potential churners, even at the cost of precision — aligning with retention-focused objectives.
 
-**Top drivers (typical on Telco dataset):**
+### 🔍 Key Churn Drivers (Business Insights)
+- **Contract Type:** Month-to-month customers are more likely to churn compared to long-term contracts.  
+- **Tenure:** Newer customers (<12 months) have higher churn probability.  
+- **Monthly Charges:** Higher billing correlates with increased churn risk.  
+- **Internet Service:** Fiber optic users show elevated churn due to pricing and service perception.  
+- **Tech Support:** Customers without active tech support tend to churn more frequently.
 
-- Contract type (Month-to-month vs. 1–2 year)
+### 💡 Recommended Business Actions
+- Introduce **lock-in promotions** for month-to-month / low-tenure customers.  
+- **Enhance satisfaction programs** for high-paying fiber-optic customers.  
+- Promote **value-added services** (e.g., Tech Support, Online Security) to improve retention.  
+- Use churn prediction output to **prioritize retention outreach** and **target high-risk segments** first.
 
-- Tenure (low tenure → higher risk)
+---
 
-- Monthly charges (higher → higher risk)
+🧠 *Business Impact:*  
+Helps marketing teams optimize retention campaigns, reduce churn-related revenue loss, and improve lifetime value (LTV) of customers.
 
-- Internet service (Fiber optic group shows higher churn)
-
-- Tech support (No support → higher churn)
-
-Suggested actions:
-
-- Lock-in offers for month-to-month / short-tenure customers
-
-- Improve fiber-optic satisfaction touchpoints
-
-- Incentivize value-add services (e.g., tech support)
 
 ## 🧪 Reproducibility
 
