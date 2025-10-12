@@ -1,7 +1,7 @@
 # Telco Customer Churn Prediction
 
 Built an end-to-end churn prediction system using the **Data Science process**:  
-data collection → cleaning → EDA → feature engineering → model tuning → threshold calibration → deployment.
+define problem → data collection → cleaning → EDA → feature engineering → model tuning → threshold calibration → model evaluation → deployment.
 
 **Model:** XGBoost (threshold = 0.4, optimized for recall)  
 **Metrics:** Precision 0.50 • Recall 0.86 • F1 0.63 • ROC-AUC 0.84  
@@ -97,6 +97,8 @@ src/TelcoChurnPrediction.ipynb
 
 - Threshold sweep (0.3–0.7) and selection (0.4)
 
+- Model Evaluation (cross validation)
+
 - Export artifacts:
     ```py
     import os, json, joblib, numpy as np
@@ -106,7 +108,7 @@ src/TelcoChurnPrediction.ipynb
     np.save("../artifacts/final_threshold.npy", np.array([0.4]))
     json.dump(X_train.columns.tolist(), open("../artifacts/train_columns.json","w"))
     ```
-## 📊 Power BI Dashboard for Insight
+## 📊 Power BI Dashboard for Insight before ML modeling
 
 <p align="center">
   <img src="image.png" alt="Power BI Dashboard" width="950">

@@ -19,34 +19,35 @@ if missing:
     st.stop()
 
 model = joblib.load(MODEL_PATH)
-threshold = float(np.load(THRESHOLD_PATH)[0])
+threshold_artifact = float(np.load(THRESHOLD_PATH)[0])
 with open(TRAINCOLS_PATH, "r", encoding="utf-8") as f:
     train_cols = json.load(f)
 
-st.title("(XGBoost)")
-st.caption("Final model @ threshold = 0.4 | Precision≈0.50, Recall≈0.86, F1≈0.63, ROC-AUC≈0.84")
+st.title("Telco Customer Churn – XGBoost")
+st.caption(f"Final model • AUC≈0.84 • Operating threshold (artifact) = {threshold_artifact}")
 st.success("✅ Model and artifacts loaded successfully.")
 
-# ---------- UI: defaults exactly like your screenshot ----------
+# ========= UI =========
 st.subheader("Customer Profile & Services")
 
-# lists for deterministic default selection
-gender_opts   = ["Female", "Male"]
+gender_opts   = ["Female", "Male"]  # kept for UX (even if 'gender' not used in X)
 yn_opts       = ["No", "Yes"]
 internet_opts = ["DSL", "Fiber optic", "No internet service"]
 contract_opts = ["Month-to-month", "One year", "Two year"]
-payment_opts  = ["Electronic check", "Mailed check",
-                 "Bank transfer (automatic)", "Credit card (automatic)"]
+payment_opts  = [
+    "Electronic check", "Mailed check",
+    "Bank transfer (automatic)", "Credit card (automatic)"
+]
 tri_opts      = ["No", "Yes", "No internet service"]  # for 3-state service fields
 
 c1, c2, c3 = st.columns(3)
 with c1:
-    gender      = st.selectbox("Gender", gender_opts, index=gender_opts.index("Male"))
+    gender      = st.selectbox("Gender (not used in model)", gender_opts, index=gender_opts.index("Male"))
     senior      = st.selectbox("Senior Citizen", yn_opts, index=yn_opts.index("No"))
     partner     = st.selectbox("Partner", yn_opts, index=yn_opts.index("No"))
     dependents  = st.selectbox("Dependents", yn_opts, index=yn_opts.index("No"))
 with c2:
-    tenure      = st.number_input("Tenure (months)", min_value=0, max_value=72, value=2)        # default 2
+    tenure      = st.number_input("Tenure (months)", min_value=0, max_value=72, value=2, step=1)
     monthly     = st.number_input("Monthly Charges", min_value=0.0, max_value=200.0, value=100.0, step=1.0)
     paperless   = st.selectbox("Paperless Billing", yn_opts, index=yn_opts.index("Yes"))
     contract    = st.selectbox("Contract", contract_opts, index=contract_opts.index("Month-to-month"))
@@ -66,73 +67,101 @@ with c6:
 with c7:
     techsupport  = st.selectbox("Tech Support", tri_opts, index=tri_opts.index("Yes"))
 
-# ---------- build raw dict (numeric + one-hot flags like training) ----------
+st.divider()
+
+# Optional: allow experimenting different thresholds in UI (prediction text uses this)
+t_ui = st.slider("🔧 Try a different threshold (for what-if view)", 0.05, 0.95, threshold_artifact, 0.01)
+
+# ========= Feature construction (must mirror training) =========
+# We DO NOT feed 'gender' or 'TotalCharges' because training X dropped them.
+# But we still compute TotalCharges for ChargeRatio.
 total_charges = float(monthly) * max(int(tenure), 1)
+charge_ratio  = total_charges / (int(tenure) + 1)  # same as training: /(tenure+1)
 
-raw = {
-    # if your training used one-hot like gender_Male instead of a single "gender" flag,
-    # this will still be safe because reindex will drop/zero missing columns later.
-    "gender": 1 if gender == "Male" else 0,
-    "SeniorCitizen": 1 if senior == "Yes" else 0,
-    "Partner": 1 if partner == "Yes" else 0,
-    "Dependents": 1 if dependents == "Yes" else 0,
+# PaymentAutomatic derived from PaymentMethod (case-insensitive)
+payment_automatic = 1 if "automatic" in payment.lower() else 0
 
-    "tenure": tenure,
-    "MonthlyCharges": monthly,
-    "TotalCharges": total_charges,
-
-    "PhoneService": 1 if phoneservice == "Yes" else 0,
-    "MultipleLines": 1 if multiplelines == "Yes" else 0,
-
-    "PaperlessBilling": 1 if paperless == "Yes" else 0,
-
-    # One-hot InternetService
-    "InternetService_DSL": 1 if internet == "DSL" else 0,
-    "InternetService_Fiber optic": 1 if internet == "Fiber optic" else 0,
-    # "No internet service" -> both zero
-
-    # One-hot Contract
-    "Contract_One year": 1 if contract == "One year" else 0,
-    "Contract_Two year": 1 if contract == "Two year" else 0,
-
-    # One-hot PaymentMethod
-    "PaymentMethod_Electronic check": 1 if payment == "Electronic check" else 0,
-    "PaymentMethod_Mailed check": 1 if payment == "Mailed check" else 0,
-    "PaymentMethod_Bank transfer (automatic)": 1 if payment == "Bank transfer (automatic)" else 0,
-    "PaymentMethod_Credit card (automatic)": 1 if payment == "Credit card (automatic)" else 0,
-}
-
-# handle 3-state service fields to match training encoding
-def three_state_to_flags(val: str, base: str):
-    """Map 'Yes'/'No'/'No internet service' to detailed one-hots if they exist in training columns."""
-    # simple flag (in case training used just 0/1)
+# Helper: 3-state to binary or one-hots, depending on training columns
+def three_state_to_raw(val: str, base: str, raw: dict):
+    """
+    If training had simple binary (0/1), we keep base as 0/1 with 'Yes'=1 else 0
+    (so 'No internet service' -> 0).
+    If training had one-hots for the three states, we set them accordingly.
+    """
+    # default simple binary
     raw[base] = 1 if val == "Yes" else 0
 
-    # if training had detailed one-hots, switch to them
-    if (f"{base}_Yes" in train_cols) or (f"{base}_No" in train_cols) or (f"{base}_No internet service" in train_cols):
+    # override with detailed one-hots if present in training schema
+    keys = [f"{base}_Yes", f"{base}_No", f"{base}_No internet service"]
+    if any(k in train_cols for k in keys):
         raw.pop(base, None)
         raw[f"{base}_Yes"] = 1 if val == "Yes" else 0
-        raw[f"{base}_No"] = 1 if val == "No" else 0
+        raw[f"{base}_No"]  = 1 if val == "No" else 0
         if f"{base}_No internet service" in train_cols:
             raw[f"{base}_No internet service"] = 1 if val == "No internet service" else 0
 
-three_state_to_flags(onlinesec,   "OnlineSecurity")
-three_state_to_flags(onlinebackup,"OnlineBackup")
-three_state_to_flags(deviceprot,  "DeviceProtection")
-three_state_to_flags(techsupport, "TechSupport")
+raw = {
+    # numeric / binary (used by model)
+    "SeniorCitizen": 1 if senior == "Yes" else 0,
+    "Partner": 1 if partner == "Yes" else 0,
+    "Dependents": 1 if dependents == "Yes" else 0,
+    "tenure": int(tenure),
+    "MonthlyCharges": float(monthly),
+    "PaperlessBilling": 1 if paperless == "Yes" else 0,
+    "PhoneService": 1 if phoneservice == "Yes" else 0,
+    "MultipleLines": 1 if multiplelines == "Yes" else 0,
 
-# ---------- align to training columns ----------
+    # engineered features in your latest training
+    "ChargeRatio": float(charge_ratio),
+    "PaymentAutomatic": int(payment_automatic),
+}
+
+# engineered tenure milestones
+for m in [12, 24, 36, 48, 60]:
+    raw[f"tenure_ge_{m}m"] = 1 if int(tenure) >= m else 0
+
+# tri-state service features
+three_state_to_raw(onlinesec,   "OnlineSecurity",  raw)
+three_state_to_raw(onlinebackup,"OnlineBackup",    raw)
+three_state_to_raw(deviceprot,  "DeviceProtection",raw)
+three_state_to_raw(techsupport, "TechSupport",     raw)
+
+# one-hot for InternetService / Contract / PaymentMethod (drop_first happened at training; reindex will handle)
+def set_one_hot(prefix: str, value: str, raw: dict):
+    # create all possible dummies you expect; reindex will drop the rest
+    raw[f"{prefix}_DSL"] = 1 if value == "DSL" else 0
+    raw[f"{prefix}_Fiber optic"] = 1 if value == "Fiber optic" else 0
+    raw[f"{prefix}_No internet service"] = 1 if value == "No internet service" else 0
+
+set_one_hot("InternetService", internet, raw)
+
+raw["Contract_One year"] = 1 if contract == "One year" else 0
+raw["Contract_Two year"] = 1 if contract == "Two year" else 0
+# baseline is Month-to-month
+
+raw["PaymentMethod_Electronic check"]      = 1 if payment == "Electronic check" else 0
+raw["PaymentMethod_Mailed check"]          = 1 if payment == "Mailed check" else 0
+raw["PaymentMethod_Bank transfer (automatic)"] = 1 if payment == "Bank transfer (automatic)" else 0
+raw["PaymentMethod_Credit card (automatic)"]   = 1 if payment == "Credit card (automatic)" else 0
+
+# ========= Align to training columns =========
 x = pd.DataFrame([raw])
 x = x.reindex(columns=train_cols, fill_value=0)
 
 with st.expander("🔎 View model input vector"):
     st.dataframe(x, use_container_width=True)
 
-# ---------- predict ----------
+# ========= Predict =========
 proba = float(model.predict_proba(x)[:, 1][0])
-pred  = int(proba >= threshold)
+pred_artifact_thr  = int(proba >= threshold_artifact)
+pred_trial_thr     = int(proba >= t_ui)
 
 st.subheader(f"Churn Probability: {proba:.2%}")
-st.write(f"Prediction @ threshold 0.4: **{'Churn' if pred==1 else 'Stay'}**")
+st.write(f"• Prediction @ artifact threshold **{threshold_artifact:.2f}**: "
+         f"**{'Churn' if pred_artifact_thr==1 else 'Stay'}**")
+if abs(t_ui - threshold_artifact) > 1e-9:
+    st.write(f"• What-if @ threshold **{t_ui:.2f}**: "
+             f"**{'Churn' if pred_trial_thr==1 else 'Stay'}**")
 
-st.caption("Adjust fields and observe probability changes. Defaults are set to your requested scenario.")
+st.caption("Adjust fields to see probability shifts. Feature set includes ChargeRatio, PaymentAutomatic, and tenure milestone flags. "
+           "Input vector is automatically aligned to the training schema.")

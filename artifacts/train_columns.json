@@ -1,5 +1,4 @@
 [
-  "gender",
   "SeniorCitizen",
   "Partner",
   "Dependents",
@@ -14,7 +13,15 @@
   "StreamingMovies",
   "PaperlessBilling",
   "MonthlyCharges",
-  "TotalCharges",
+
+  "ChargeRatio",
+  "PaymentAutomatic",
+  "tenure_ge_12m",
+  "tenure_ge_24m",
+  "tenure_ge_36m",
+  "tenure_ge_48m",
+  "tenure_ge_60m",
+
   "InternetService_Fiber optic",
   "InternetService_No",
   "Contract_One year",
