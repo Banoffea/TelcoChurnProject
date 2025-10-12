@@ -76,7 +76,7 @@ If you retrain, re-export the three files again:
 ---
 
 🧠 *Business Impact:*  
-Helps marketing teams optimize retention campaigns, reduce churn-related revenue loss, and improve lifetime value (LTV) of customers.
+Helps marketing teams optimize retention campaigns by improving churn capture by +15%, reducing churn-related revenue loss, and increasing customer lifetime value (LTV).
 
 
 ## 🧪 Reproducibility
